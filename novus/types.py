@@ -3,6 +3,9 @@ import strawberry
 from strawberry import auto
 from typing import List, Optional
 from . import models
+from strawberry_django_plus import gql
+from strawberry_django_plus.gql import relay
+from django.db.models import Count
 
 
 @strawberry.django.type(models.CustomUser)
@@ -10,7 +13,17 @@ class CustomUser:
     id: auto
     email: auto
     username: auto
+    Image: auto
 
+
+# @strawberry.django.filters.filter(models.Workspace)
+# class WorkspaceFilter:
+#     # space_id: str
+#     created_by_id: str
+
+#     def filter(self, queryset):
+#         return queryset.filter(created_by_id=self.created_by_id)
+        
 
 @strawberry.django.type(models.Workspace)
 class Workspace:
@@ -21,19 +34,30 @@ class Workspace:
     Image: auto
 
 
-@strawberry.django.type(models.Workspace)
-class WorkspaceInput:
-    id: auto
-    created_by: "CustomUser"
-    Name: auto
-
-
 @strawberry.django.type(models.Members)
 class Members:
     id: auto
     Workspace: "Workspace"
     User: "CustomUser"
     is_admin: auto
+
+@strawberry.type
+class PaginatedMembers:
+    items: List[Members]
+    has_next_page: bool
+    memberCount: int
+
+# @strawberry.django.type(models.Members)
+# class MembersCount:
+#     id: auto
+#     Workspace: "Workspace"
+#     User: "CustomUser"
+#     is_admin: auto
+
+
+#     @classmethod
+#     def get_queryset(cls, queryset, info):
+#         return queryset.all().order_by('id').values('Workspace__space_id').annotate(count=Count('Workspace__space_id'))
 
 
 @strawberry.django.type(models.Channels)
@@ -55,19 +79,62 @@ class ChannelsInput:
 class ChannelMembers:
     id: auto
     Channel: "Channels"
-    User: List[Members]  # ManyToManyField
+    Member: List[CustomUser]  # ManyToManyField
+    memberCount: int
+    channelCount: int
+    message: str
+
+@strawberry.type
+class PaginatedChannelMembers:
+    items: List[ChannelMembers]
+    has_next_page: bool
+    channelCount: int
 
 
 @strawberry.django.type(models.Chat)
 class Chat:
     id: auto
+    Workspace: "Workspace"
     Channel: "Channels"
     Username: "CustomUser"
     Message: auto
-    ReplyUsername: auto
+    ReplyUsername: "CustomUser"
     Reply: auto
+
+@strawberry.type
+class PaginatedChat:
+    items: List[Chat]
+    has_next_page: bool
 
 
 @strawberry.type
 class Response:
     message: str
+
+@gql.django.type(models.InviteLink)
+class InviteLink(relay.Node):
+    Workspace: "Workspace"
+    uuid: gql.auto
+    CreatedOn: gql.auto
+    TotalPeople: gql.auto
+    PeopleAdded: gql.auto
+    
+
+# @strawberry.django.filters.filter(models.RecentlyOpenedSpace)
+# class RecentlyOpenedSpaceFilter:
+#     User_id: str
+#     def filter(self, queryset):
+#         return queryset.filter(User_id=self.User_id).order_by('LastOpened')
+
+@strawberry.django.type(models.RecentlyOpenedSpace)
+class RecentlyOpenedSpace:
+    id: auto
+    workspace: "Workspace"
+    User: "CustomUser"
+    LastOpened: auto
+    count: auto
+
+@strawberry.type
+class PaginatedRecentlyOpenedSpace:
+    items: List[RecentlyOpenedSpace]
+    has_next_page: bool

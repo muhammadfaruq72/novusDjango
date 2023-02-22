@@ -1,12 +1,12 @@
 from django.contrib import admin
-from .models import CustomUser, Workspace, Members, Channels, ChannelMembers, Chat
+from .models import CustomUser, Workspace, Members, Channels, ChannelMembers, Chat, InviteLink, RecentlyOpenedSpace
 
 # Register your models here.
 
 
 @admin.register(CustomUser)
 class CustomUserModel(admin.ModelAdmin):
-    list_display = ["id", "email", "username"]
+    list_display = ["id", "email", "username", "Image"]
 
 
 @admin.register(Workspace)
@@ -31,4 +31,12 @@ class ChannelMembersUserModel(admin.ModelAdmin):
 
 @admin.register(Chat)
 class ChatUserModel(admin.ModelAdmin):
-    list_display = ["id", "Channel", "Username", "Message", "ReplyUsername", "Reply"]
+    list_display = ["id", "Workspace", "Channel", "Username", "Message", "ReplyUsername", "Reply"]
+
+@admin.register(InviteLink)
+class InviteLinkUserModel(admin.ModelAdmin):
+    list_display = ["Workspace", "uuid", "CreatedOn", "TotalPeople", "PeopleAdded"]
+
+@admin.register(RecentlyOpenedSpace)
+class RecentlyOpenedSpace(admin.ModelAdmin):
+    list_display = ["workspace", "User", "LastOpened", 'count']

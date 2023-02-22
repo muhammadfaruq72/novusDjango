@@ -27,6 +27,6 @@ application = ProtocolTypeRouter({
 
     # WebSocket chat handler
     "websocket": URLRouter([
-    path("ws/chat/", MyConsumer.as_asgi()),
+    path("chat/", MyConsumer.as_asgi()),
     ])
 })
