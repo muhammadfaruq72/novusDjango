@@ -90,6 +90,18 @@ class PaginatedChannelMembers:
     has_next_page: bool
     channelCount: int
 
+@strawberry.django.type(models.Members)
+class queryChannelMembers:
+    id: auto
+    User: "CustomUser"
+    isAdded: bool
+    is_admin: auto
+
+@strawberry.type
+class PaginatedqueryChannelMembers:
+    items: List[queryChannelMembers]
+    has_next_page: bool
+    # hasNextchannelMember: bool
 
 @strawberry.django.type(models.Chat)
 class Chat:

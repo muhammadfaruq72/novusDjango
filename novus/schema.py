@@ -25,7 +25,9 @@ from .types import (
     CustomUser,
     PaginatedChannelMembers,
     PaginatedMembers,
-    PaginatedChat
+    PaginatedChat,
+    queryChannelMembers,
+    PaginatedqueryChannelMembers
 
 )
 from strawberry_django import mutations
@@ -40,6 +42,8 @@ from asgiref.sync import sync_to_async
 from django.db.models import Q
 import datetime
 from django.utils import timezone
+from django.db.models import Value, BooleanField
+import numpy
 
 
 def CreateChannel(space_id: str, ChannelName: str, CreatorEmail: str):
@@ -212,15 +216,22 @@ class Mutation:
 
     @gql.django.field
     def AddChannelMember(
-        self, info: Info, space_id: str, ChannelName: str, WorkSpaceMemberEmail: str
+        self, info: Info, space_id: str, ChannelName: str, WorkSpaceMemberUsername: str, Add: bool
     ) -> Response:
         try:
-            models.Members.objects.filter(Workspace=space_id, User=WorkSpaceMemberEmail).values()[0]  # Check if Member exists in Workspace
-            ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
-            channelmembers_id = models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).values()[0]["id"]
-            CustomUser_id = models.CustomUser.objects.filter(email=WorkSpaceMemberEmail).values()[0]["id"]
-            cursor = connection.cursor()
-            cursor.execute(f"""INSERT INTO "novus_channelmembers_Member"(channelmembers_id, customuser_id) VALUES ({channelmembers_id}, {CustomUser_id});""")
+            CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
+            channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+            id = models.ChannelMembers.objects.filter(Workspace_id=space_id, Channel_id=channel_id).values()[0]['id']
+            if Add == True:
+                models.ChannelMembers.objects.get(id=id).Member.add(CustomUser_id)
+            if Add == False:
+                models.ChannelMembers.objects.get(id=id).Member.remove(CustomUser_id)
+            # models.Members.objects.filter(Workspace=space_id, User=WorkSpaceMemberEmail).values()[0]  # Check if Member exists in Workspace
+            # ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
+            # channelmembers_id = models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).values()[0]["id"]
+            # CustomUser_id = models.CustomUser.objects.filter(email=WorkSpaceMemberEmail).values()[0]["id"]
+            # cursor = connection.cursor()
+            # cursor.execute(f"""INSERT INTO "novus_channelmembers_Member"(channelmembers_id, customuser_id) VALUES ({channelmembers_id}, {CustomUser_id});""")
 
             return Response(message="Success")
         except Exception as e:
@@ -229,14 +240,18 @@ class Mutation:
         
     @gql.django.field
     def RemoveChannelMember(
-        self, info: Info, space_id: str, ChannelName: str, WorkSpaceMemberEmail: str
+        self, info: Info, space_id: str, ChannelName: str, WorkSpaceMemberUsername: str
     ) -> Response:
         try:
-            ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
-            channelmembers_id = models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).values()[0]["id"]
-            CustomUser_id = models.CustomUser.objects.filter(email=WorkSpaceMemberEmail).values()[0]["id"]
-            cursor = connection.cursor()
-            cursor.execute(f"""DELETE FROM "novus_channelmembers_Member" WHERE channelmembers_id='{channelmembers_id}' AND CustomUser_id='{CustomUser_id}';""")
+            CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
+            channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+            id = models.ChannelMembers.objects.filter(Workspace_id=space_id, Channel_id=channel_id).values()[0]['id']
+            models.ChannelMembers.objects.get(id=id).Member.add(CustomUser_id)
+            # ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
+            # channelmembers_id = models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).values()[0]["id"]
+            # CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
+            # cursor = connection.cursor()
+            # cursor.execute(f"""DELETE FROM "novus_channelmembers_Member" WHERE channelmembers_id='{channelmembers_id}' AND CustomUser_id='{CustomUser_id}';""")
 
             return Response(message="Success")
         except Exception as e:
@@ -390,11 +405,77 @@ class Query(UserQueries):
             paginated_page.object_list = list(paginated_page.object_list)
 
             memberCount = models.Members.objects.filter(Workspace_id=space_id).count()
+
+            for member in paginated_page:
+                print(member.User)
             
             return PaginatedMembers(
             items=[Members(id=member.id, Workspace=member.Workspace, User=member.User, is_admin=member.is_admin)
                    for member in paginated_page],
                    has_next_page=paginated_page.has_next(), memberCount=memberCount)
+        
+        except Exception as e:
+            print(e)
+            return None
+        
+    @gql.django.field
+    def QueryChannelMembers(self, page: int, per_page: int, space_id: str, channelName: str, ChMember: bool, UserContains: Optional[str] = None) -> PaginatedqueryChannelMembers | None:
+        try:
+            channel_id = models.Channels.objects.filter(Name=channelName, Workspace_id=space_id).values()[0]["id"]
+            id = models.ChannelMembers.objects.filter(Workspace_id=space_id, Channel_id=channel_id).first().id
+
+            if UserContains != None:
+                # p = Paginator(models.Members.objects.filter(Workspace_id=space_id, User__username__icontains=UserContains).order_by('id'), per_page)
+                qs2 = models.ChannelMembers.objects.get(id=id).Member.filter(username__icontains=UserContains).values("id", "email")
+                qs1 = models.Members.objects.filter(Workspace_id=space_id, User__username__icontains=UserContains).values("User__id", "User_id")
+                Intersection = []
+                Difference = []
+                try:
+                    p = Paginator( qs1.intersection(qs2).order_by('User__id'), per_page)
+                    paginated_page = p.page(page)
+                    paginated_page.object_list = list(paginated_page.object_list)
+                    Intersection = [{"User__id": i["User__id"], "User_id": i["User_id"], "isAdded": True} for i in list(paginated_page.object_list)]
+                except:
+                    Intersection = []
+
+                try:
+                    p = Paginator( qs1.difference(qs2).order_by('User__id'), per_page)
+                    paginated_page = p.page(page)
+                    paginated_page.object_list = list(paginated_page.object_list)
+                    Difference = [{"User__id": i["User__id"], "User_id": i["User_id"], "isAdded": False} for i in list(paginated_page.object_list)]
+                except:
+                    Difference = []
+                
+                Intersection = numpy.concatenate((Intersection, Difference), axis = 0)
+                Intersection = []
+                Difference = []
+                return PaginatedqueryChannelMembers(
+                items=[queryChannelMembers(id=member['User__id'], User=models.Members.objects.filter(Workspace_id=space_id, User__email=member['User_id']).first().User, isAdded=member['isAdded'])
+                    for member in Intersection],
+                    has_next_page=paginated_page.has_next())
+
+            else:
+                isAdded = None
+                qs2 = models.ChannelMembers.objects.get(id=id).Member.values("id", "email")
+                qs1 = models.Members.objects.filter(Workspace_id=space_id).values("User__id", "User_id")
+                if ChMember == True:
+                    qs3 = qs1.intersection(qs2).order_by('User__id')
+                    p = Paginator( qs3, per_page)
+                    paginated_page = p.page(page)
+                    paginated_page.object_list = list(paginated_page.object_list)
+                    isAdded = True
+                if ChMember == False:
+                    qs3 = qs1.difference(qs2).order_by('User__id')
+                    p = Paginator( qs3, per_page)
+                    paginated_page = p.page(page)
+                    paginated_page.object_list = list(paginated_page.object_list)
+                    isAdded = False
+                    
+            
+            return PaginatedqueryChannelMembers(
+            items=[queryChannelMembers(id=member['User__id'], User=models.Members.objects.filter(Workspace_id=space_id, User__email=member['User_id']).first().User, isAdded=isAdded)
+                   for member in paginated_page],
+                   has_next_page=paginated_page.has_next())
         
         except Exception as e:
             print(e)
