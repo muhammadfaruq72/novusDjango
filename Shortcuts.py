@@ -21,6 +21,8 @@ Members.objects.filter(Workspace="DataScienceTeam1", User="admin@gmail.com").val
 
 Members.objects.create(User_id="admin@gmail.com", Workspace_id="DataScienceTeam1")
 
+from django.db.models import Value, BooleanField
+Members.objects.filter(Workspace_id="AIRobotsDiscussionTeam19", User__username__icontains="user10").values("User__id", "User_id").annotate(isAdded=Value(True, output_field=BooleanField()))
 
 for i in ChannelMembers.objects.all():
     print(i.id)
@@ -30,11 +32,20 @@ ChannelMembers.objects.get(id=1).Member.remove(1)
 ChannelMembers.objects.get(id=1).Member.all().values()
 ChannelMembers.objects.get(id=7).Member.all().values("email")
 
-qs2 = ChannelMembers.objects.get(id=7).Member.values("email")
-qs1 = Members.objects.filter(Workspace_id="AIRobotsDiscussionTeam19").values("User")
-qs1.union(qs2).order_by('User_id')
+qs2 = ChannelMembers.objects.get(id=7).Member.values("id", "email")
+qs1 = Members.objects.filter(Workspace_id="AIRobotsDiscussionTeam19").values("User__id", "User_id")
+qs3 = qs1.intersection(qs2).order_by('User__id')
+qs3 = qs1.difference(qs2).order_by('User__id')
+qs3.union(qs1.difference(qs2)).order_by('User__id')
 
-combine = qs1 | qs2
+Array = []
+for i in qs1.intersection(qs2).order_by('User__id'):
+    Array.append({"User__id": i["User__id"], "User_id": i["User_id"], "isAdded": True})
+print(Array)
+
+print([{"User__id": i["User__id"], "User_id": i["User_id"], "isAdded": True} for i in qs1.intersection(qs2).order_by('User__id')])
+
+# combine = qs1.intersection(qs2).order_by('User_id') | qs1.difference(qs2).order_by('User_id')
 
 from itertools import chain
 from operator import attrgetter
