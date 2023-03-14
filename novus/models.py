@@ -74,6 +74,7 @@ class Workspace(models.Model):
     Name = models.CharField(max_length=255, unique=True)
     space_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
     Image = models.ImageField(upload_to="static/Workspace", default="static/Workspace/gradient.png", unique=True)
+    isClient = models.BooleanField(default=False)
 
     def __str__(self):
         return self.space_id
@@ -124,7 +125,7 @@ class Channels(models.Model):
 
 class ChannelMembers(models.Model):
     Workspace = models.ForeignKey(Workspace, to_field="space_id", on_delete=models.DO_NOTHING, default="")
-    Channel = models.ForeignKey(Channels, on_delete=models.DO_NOTHING)
+    Channel = models.ForeignKey(Channels, on_delete=models.CASCADE)
     Member = models.ManyToManyField(CustomUser, related_name='chMembers')
 
     def __str__(self):
@@ -135,6 +136,25 @@ class ChannelMembers(models.Model):
         verbose_name = "ChannelMember"
         verbose_name_plural = "ChannelMembers"
 
+Status = (
+    ("In Queue", "In Queue"),
+    ("In Progress", "In Progress"),
+    ("Cancelled", "Cancelled"),
+    ("Completed", "Completed"),
+)
+
+class Tasks(models.Model):
+    Workspace = models.ForeignKey(Workspace, to_field="space_id", on_delete=models.DO_NOTHING, default="")
+    Channel = models.ForeignKey(Channels, on_delete=models.CASCADE)
+    task = models.TextField(default=None, blank=True, null=True)
+    CreatedOnDate = models.DateField()
+    ExpiryDate = models.DateField()
+    Status =models.CharField(max_length = 30, choices = Status, default = 'In Queue')
+
+    class Meta:
+        unique_together = ("Workspace", "Channel")
+        verbose_name = "Task"
+        verbose_name_plural = "Tasks"
 
 class Chat(models.Model):
     Workspace = models.ForeignKey(Workspace, to_field="space_id", on_delete=models.DO_NOTHING, default="")
@@ -145,7 +165,6 @@ class Chat(models.Model):
         to_field="username",
         related_name="MessageSender",
     )
-    # DpUsername = models.ForeignKey(CustomUser, to_field="Image", on_delete=models.DO_NOTHING, related_name="ImageUsername")
     Message = models.TextField(default=None, blank=True, null=True)
     ReplyUsername = models.ForeignKey(
         CustomUser,
@@ -155,7 +174,10 @@ class Chat(models.Model):
         blank=True, null=True
     )
     Reply = models.TextField(default=None, blank=True, null=True)
-    # DpReplyUsername = models.ForeignKey(CustomUser, to_field="Image", on_delete=models.DO_NOTHING, related_name="ImageDpReplyUsername", blank=True, null=True)
+    attachment = models.JSONField(default=None, blank=True, null=True)
+    ReplyAttachment = models.JSONField(default=None, blank=True, null=True)
+    isClient = models.BooleanField(default=False)
+
 
     def __str__(self):
         return str(self.Message)
@@ -214,7 +236,11 @@ def GenerateImg(Folder: str, Foreground: str, instance, Mode: str):
 
 def postSave_Workspace(sender, instance, created, **kwargs):
     if created:
-        instance.space_id = (instance.Name + "Team" + str(instance.id)).replace(" ", "")
+        if instance.isClient == False:
+            instance.space_id = (instance.Name + "Team" + str(instance.id)).replace(" ", "")
+        else:
+            instance.space_id = (instance.Name + "Client" + str(instance.id)).replace(" ", "")
+            
         pattern = r"[^A-Za-z0-9]+"
         instance.space_id = re.sub(pattern, "", instance.space_id)
         GenerateImg("Workspace", "cube.png", instance, "Workspace")

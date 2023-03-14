@@ -32,6 +32,7 @@ class Workspace:
     Name: auto
     space_id: auto
     Image: auto
+    isClient: auto
 
 
 @strawberry.django.type(models.Members)
@@ -98,6 +99,12 @@ class queryChannelMembers:
     is_admin: auto
 
 @strawberry.type
+class deleteChannel:
+    space_id: str
+    ChannelName: str
+    operation: str
+
+@strawberry.type
 class PaginatedqueryChannelMembers:
     items: List[queryChannelMembers]
     has_next_page: bool
@@ -112,6 +119,9 @@ class Chat:
     Message: auto
     ReplyUsername: "CustomUser"
     Reply: auto
+    attachment: auto
+    ReplyAttachment: auto
+    isClient: auto
 
 @strawberry.type
 class PaginatedChat:
@@ -130,6 +140,17 @@ class InviteLink(relay.Node):
     CreatedOn: gql.auto
     TotalPeople: gql.auto
     PeopleAdded: gql.auto
+
+@gql.django.type(models.Tasks)
+class Tasks(relay.Node):
+    id_: int
+    id: gql.auto
+    Workspace: "Workspace"
+    Channel: "Channels"
+    task: gql.auto
+    CreatedOnDate: gql.auto
+    ExpiryDate: gql.auto
+    Status: gql.auto
     
 
 # @strawberry.django.filters.filter(models.RecentlyOpenedSpace)
@@ -149,4 +170,15 @@ class RecentlyOpenedSpace:
 @strawberry.type
 class PaginatedRecentlyOpenedSpace:
     items: List[RecentlyOpenedSpace]
+    has_next_page: bool
+
+@strawberry.django.type(models.Members)
+class SpaceMembersAddQuery:
+    id: int
+    User: "CustomUser"
+    isChecked: bool
+
+@strawberry.type
+class PaginatedSpaceMembersAddQuery:
+    items: List[SpaceMembersAddQuery]
     has_next_page: bool

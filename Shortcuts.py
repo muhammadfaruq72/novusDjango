@@ -38,6 +38,9 @@ qs3 = qs1.intersection(qs2).order_by('User__id')
 qs3 = qs1.difference(qs2).order_by('User__id')
 qs3.union(qs1.difference(qs2)).order_by('User__id')
 
+Members.objects.filter(Workspace_id="TestingClientspaceClient39").values("User__id", "User_id")
+Members.objects.filter(Workspace_id="AIRobotsDiscussionTeam19").values("User__id", "User_id")
+
 Array = []
 for i in qs1.intersection(qs2).order_by('User__id'):
     Array.append({"User__id": i["User__id"], "User_id": i["User_id"], "isAdded": True})

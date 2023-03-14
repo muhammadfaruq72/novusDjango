@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Workspace, Members, Channels, ChannelMembers, Chat, InviteLink, RecentlyOpenedSpace
+from .models import CustomUser, Workspace, Members, Channels, ChannelMembers, Chat, InviteLink, RecentlyOpenedSpace, Tasks
 
 # Register your models here.
 
@@ -11,7 +11,7 @@ class CustomUserModel(admin.ModelAdmin):
 
 @admin.register(Workspace)
 class WorkspaceUserModel(admin.ModelAdmin):
-    list_display = ["id", "created_by", "Name", "space_id", "Image"]
+    list_display = ["id", "created_by", "Name", "space_id", "Image", "isClient"]
 
 
 @admin.register(Members)
@@ -31,7 +31,7 @@ class ChannelMembersUserModel(admin.ModelAdmin):
 
 @admin.register(Chat)
 class ChatUserModel(admin.ModelAdmin):
-    list_display = ["id", "Workspace", "Channel", "Username", "Message", "ReplyUsername", "Reply"]
+    list_display = ["id", "Workspace", "Channel", "Username", "Message", "ReplyUsername", "Reply", "attachment", "isClient"]
 
 @admin.register(InviteLink)
 class InviteLinkUserModel(admin.ModelAdmin):
@@ -40,3 +40,7 @@ class InviteLinkUserModel(admin.ModelAdmin):
 @admin.register(RecentlyOpenedSpace)
 class RecentlyOpenedSpace(admin.ModelAdmin):
     list_display = ["workspace", "User", "LastOpened", 'count']
+
+@admin.register(Tasks)
+class Tasks(admin.ModelAdmin):
+    list_display = ["id","Workspace", "Channel", "task", 'CreatedOnDate', 'ExpiryDate', 'Status']

@@ -77,7 +77,11 @@ class MyConsumer(AsyncJsonWebsocketConsumer):
                     Username_id=content['username'],
                     Message=content['Message'],
                     ReplyUsername_id=None,
-                    Reply=content['Reply'])
+                    Reply=content['Reply'],
+                    attachment=content['attachment'],
+                    ReplyAttachment=content['ReplyAttachment'],
+                    isClient=content['isClient'])
+                    
                 broadcast_message = {
                     "Workspace": Space,
                     "Channel": {"Name": content['Channel']},
@@ -85,7 +89,10 @@ class MyConsumer(AsyncJsonWebsocketConsumer):
                     "Username": {"username": content['username'], "Image": {"url": "/"+DP[0]}},
                     "ReplyUsername": None,
                     "Reply": content['Reply'],
-                    "id": str(n.pk)
+                    "id": str(n.pk),
+                    "attachment": content['attachment'],
+                    "ReplyAttachment": content['ReplyAttachment'],
+                    "isClient": content['isClient']
 
                 }
                 return broadcast_message
@@ -96,7 +103,10 @@ class MyConsumer(AsyncJsonWebsocketConsumer):
                     Username_id=content['username'],
                     Message=content['Message'],
                     ReplyUsername_id=content['ReplyUsername'],
-                    Reply=content['Reply'])
+                    Reply=content['Reply'],
+                    attachment=content['attachment'],
+                    ReplyAttachment=content['ReplyAttachment'],
+                    isClient=content['isClient'])
                 broadcast_message = {
                     "Workspace": Space,
                     "Channel": {"Name": content['Channel']},
@@ -104,7 +114,10 @@ class MyConsumer(AsyncJsonWebsocketConsumer):
                     "Username": {"username": content['username'], "Image": {"url": "/"+DP[0]}},
                     "ReplyUsername": {"username": content['username'], "Image": {"url": "/"+DP[1]}},
                     "Reply": content['Reply'],
-                    "id": str(n.pk)
+                    "id": str(n.pk),
+                    "attachment": content['attachment'],
+                    "ReplyAttachment": content['ReplyAttachment'],
+                    "isClient": content['isClient']
                 }
                 return broadcast_message
         try:

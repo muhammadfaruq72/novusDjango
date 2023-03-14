@@ -27,7 +27,11 @@ from .types import (
     PaginatedMembers,
     PaginatedChat,
     queryChannelMembers,
-    PaginatedqueryChannelMembers
+    PaginatedqueryChannelMembers,
+    deleteChannel,
+    PaginatedSpaceMembersAddQuery,
+    SpaceMembersAddQuery,
+    Tasks
 
 )
 from strawberry_django import mutations
@@ -66,6 +70,18 @@ def CreateChannel(space_id: str, ChannelName: str, CreatorEmail: str):
         f"""INSERT INTO "novus_channelmembers_Member"("channelmembers_id", "customuser_id") VALUES ('{channelmembers_id}', '{CustomUser_id}');"""
     )
 
+def addSpacePeople(space_id: str, email: str):
+    models.Members.objects.create(Workspace_id=space_id, User_id=email)
+    for i in models.Channels.objects.filter(Workspace_id=space_id, is_public=True).values():
+        print(i)
+        CustomUser_id = models.CustomUser.objects.filter(email=email).values()[0]["id"]
+        channel_id = models.Channels.objects.filter(Name=i["Name"], Workspace_id=i["Workspace_id"]).values()[0]["id"]
+        id = models.ChannelMembers.objects.filter(Workspace_id=i["Workspace_id"], Channel_id=channel_id).values()[0]['id']
+        models.ChannelMembers.objects.get(id=id).Member.add(CustomUser_id)
+        print(i["Workspace_id"], i["Name"])
+
+        try: models.RecentlyOpenedSpace.objects.create(workspace_id=space_id, User_id=email, LastOpened=datetime.datetime.now())
+        except Exception as e: print(e)
 
 @strawberry.type
 class AuthMutation:
@@ -94,9 +110,9 @@ class Mutation:
     revoke_token = arg_mutations.RevokeToken.field
 
     @gql.django.field
-    def Workspace(self, info: Info, email: str, Name: str) -> Workspace | None:
+    def Workspace(self, info: Info, email: str, Name: str, isClient: Optional[bool] = False ) -> Workspace | None:
         try:
-            models.Workspace.objects.create(created_by_id=email, Name=Name)
+            models.Workspace.objects.create(created_by_id=email, Name=Name, isClient=isClient)
             space = models.Workspace.objects.filter(Name=Name, created_by_id=email).first()
             space_id = space.space_id
             # Image = models.Workspace.objects.filter(Name=Name, created_by_id=email).values()[0][
@@ -112,7 +128,7 @@ class Mutation:
 
             models.RecentlyOpenedSpace.objects.create(workspace_id=space_id, User_id=email, LastOpened=datetime.datetime.now())
 
-            return Workspace(id=space.id, created_by=space.created_by, Name=space.Name, space_id=space.space_id, Image=space.Image)
+            return Workspace(id=space.id, created_by=space.created_by, Name=space.Name, space_id=space.space_id, Image=space.Image, isClient=space.isClient)
         except Exception as e:
             print(e)
             return None
@@ -200,19 +216,37 @@ class Mutation:
             print(e)
             return None
         
+    
+        
     @gql.django.field
     def DeleteChannel(
-        self, info: Info, space_id: str, ChannelName: str
-    ) -> Response:
+        self, info: Info, space_id: str, ChannelName: str, WorkSpaceMemberUsername:Optional[str] = None, Delete: Optional[bool] = None, Leave: Optional[bool] = None, Public: Optional[bool] = None ) -> deleteChannel | None:
         try:
-            ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
-            models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).delete()
-            models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).delete()
+            if Delete == True:
+                 models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).delete()
+                 return deleteChannel(space_id=space_id, ChannelName=ChannelName, operation="Deleted")
+            if Public != None:
+                models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).update(is_public=Public)
+                return deleteChannel(space_id=space_id, ChannelName=ChannelName, operation=f"Public {Public}")
+                
+            if Leave == True:
+                CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
+                channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+                id = models.ChannelMembers.objects.filter(Workspace_id=space_id, Channel_id=channel_id).values()[0]['id']
 
-            return Response(message="Success")
+                if models.Members.objects.filter(Workspace_id=space_id, User_id__username=WorkSpaceMemberUsername).first().is_admin == True:
+                    CountAdmin = models.Members.objects.filter(Workspace_id=space_id,is_admin=True).values().count()
+                    if CountAdmin > 1:
+                        models.ChannelMembers.objects.get(id=id).Member.remove(CustomUser_id)
+                    else: return None
+                else: models.ChannelMembers.objects.get(id=id).Member.remove(CustomUser_id)
+                return deleteChannel(space_id=space_id, ChannelName=ChannelName, operation="Leave")
+
+
+            
         except Exception as e:
             print(e)
-            return Response(message="Failed")
+            return None
 
     @gql.django.field
     def AddChannelMember(
@@ -224,39 +258,35 @@ class Mutation:
             id = models.ChannelMembers.objects.filter(Workspace_id=space_id, Channel_id=channel_id).values()[0]['id']
             if Add == True:
                 models.ChannelMembers.objects.get(id=id).Member.add(CustomUser_id)
+                print(Add, ChannelName, WorkSpaceMemberUsername)
             if Add == False:
                 models.ChannelMembers.objects.get(id=id).Member.remove(CustomUser_id)
-            # models.Members.objects.filter(Workspace=space_id, User=WorkSpaceMemberEmail).values()[0]  # Check if Member exists in Workspace
-            # ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
-            # channelmembers_id = models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).values()[0]["id"]
-            # CustomUser_id = models.CustomUser.objects.filter(email=WorkSpaceMemberEmail).values()[0]["id"]
-            # cursor = connection.cursor()
-            # cursor.execute(f"""INSERT INTO "novus_channelmembers_Member"(channelmembers_id, customuser_id) VALUES ({channelmembers_id}, {CustomUser_id});""")
+                print(Add, ChannelName, WorkSpaceMemberUsername)
 
-            return Response(message="Success")
+            return Response(message=WorkSpaceMemberUsername)
         except Exception as e:
             print(e)
             return Response(message="Failed")
         
-    @gql.django.field
-    def RemoveChannelMember(
-        self, info: Info, space_id: str, ChannelName: str, WorkSpaceMemberUsername: str
-    ) -> Response:
-        try:
-            CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
-            channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
-            id = models.ChannelMembers.objects.filter(Workspace_id=space_id, Channel_id=channel_id).values()[0]['id']
-            models.ChannelMembers.objects.get(id=id).Member.add(CustomUser_id)
-            # ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
-            # channelmembers_id = models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).values()[0]["id"]
-            # CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
-            # cursor = connection.cursor()
-            # cursor.execute(f"""DELETE FROM "novus_channelmembers_Member" WHERE channelmembers_id='{channelmembers_id}' AND CustomUser_id='{CustomUser_id}';""")
+    # @gql.django.field
+    # def RemoveChannelMember(
+    #     self, info: Info, space_id: str, ChannelName: str, WorkSpaceMemberUsername: str
+    # ) -> Response:
+    #     try:
+    #         CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
+    #         channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+    #         id = models.ChannelMembers.objects.filter(Workspace_id=space_id, Channel_id=channel_id).values()[0]['id']
+    #         models.ChannelMembers.objects.get(id=id).Member.add(CustomUser_id)
+    #         # ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
+    #         # channelmembers_id = models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).values()[0]["id"]
+    #         # CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
+    #         # cursor = connection.cursor()
+    #         # cursor.execute(f"""DELETE FROM "novus_channelmembers_Member" WHERE channelmembers_id='{channelmembers_id}' AND CustomUser_id='{CustomUser_id}';""")
 
-            return Response(message="Success")
-        except Exception as e:
-            print(e)
-            return Response(message="Failed")
+    #         return Response(message="Success")
+    #     except Exception as e:
+    #         print(e)
+    #         return Response(message="Failed")
         
     @gql.django.field
     def CreateInviteLink(
@@ -268,29 +298,34 @@ class Mutation:
             return None
 
     @gql.django.field
+    def Task(
+        self, info: Info, option: str, space_id: str, ChannelName: str, ExpiryDate: Optional[str] = None, Status: Optional[str] = None, id: Optional[int] = None) -> Tasks | None:
+        try:
+            if option == "add":
+                channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+                return cast(Tasks, models.Tasks.objects.create(Workspace_id=space_id, Channel_id=channel_id, ExpiryDate=datetime.datetime.strptime(ExpiryDate, "%Y-%m-%d").date(), CreatedOnDate=datetime.date.today()))
+            if option == "status":
+                channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+                models.Tasks.objects.filter(Workspace_id=space_id, Channel_id=channel_id).update(Status=Status)
+                return cast(Tasks, models.Tasks.objects.filter(Workspace_id=space_id, Channel_id=channel_id))
+            if option == "delete":
+                models.Tasks.objects.filter(id=id).delete()
+                return Tasks(id_=id)
+            
+        except Exception as e:
+            print(e)
+            return None
+
+    @gql.django.field
     def addMemberThroughInviteLink(
         self, info: Info, space_id: str, uuid: str, email: str) -> str | None:
         try:
             invitelink = models.InviteLink.objects.filter(Workspace_id=space_id, uuid=uuid).first()
-
             if invitelink.PeopleAdded <= invitelink.TotalPeople:
                 date = invitelink.CreatedOn
-
                 print(timezone.now(), date + datetime.timedelta(days=3))
                 if timezone.now() <= date + datetime.timedelta(days=3):
-
-                    models.Members.objects.create(Workspace_id=space_id, User_id=email)
-                    for i in models.Channels.objects.filter(Workspace_id=space_id, is_public=True).values():
-                        print(i)
-                        CustomUser_id = models.CustomUser.objects.filter(email=email).values()[0]["id"]
-                        channel_id = models.Channels.objects.filter(Name=i["Name"], Workspace_id=i["Workspace_id"]).values()[0]["id"]
-                        id = models.ChannelMembers.objects.filter(Workspace_id=i["Workspace_id"], Channel_id=channel_id).values()[0]['id']
-                        models.ChannelMembers.objects.get(id=id).Member.add(CustomUser_id)
-                        print(i["Workspace_id"], i["Name"])
-
-                        try: models.RecentlyOpenedSpace.objects.create(workspace_id=space_id, User_id=email, LastOpened=datetime.datetime.now())
-                        except Exception as e: print(e)
-
+                    addSpacePeople(space_id, email)
                     models.InviteLink.objects.filter(Workspace_id=space_id, uuid=uuid).update(PeopleAdded = invitelink.PeopleAdded+1)
 
                     return "Added"
@@ -309,6 +344,20 @@ class Mutation:
         except Exception as e:
             print(e)
             return Response(message="Failed")
+
+    @gql.django.field
+    def AddPeople(
+        self, info: Info, space_id: str, people: List[str]) -> str:
+        try:
+            print(people, space_id)
+            for username in people:
+                email = models.CustomUser.objects.filter(username=username).first().email
+                addSpacePeople(space_id, email)
+
+            return "Success"
+        except Exception as e:
+            print(e)
+            return "Success"
 
 
 @strawberry.type
@@ -330,6 +379,26 @@ class Query(UserQueries):
             items=[RecentlyOpenedSpace(id=recents.id, workspace=recents.workspace, User=recents.User, LastOpened=recents.LastOpened, count=recents.count,)
                    for recents in paginated_page],
                    has_next_page=paginated_page.has_next(),)
+
+    @gql.django.field
+    def recentlyOpenedSpaceAddMembers(self, page: int, per_page: int, FilterUser_id: str, SpaceContains: Optional[str] = None) -> PaginatedRecentlyOpenedSpace:
+        try:
+            if SpaceContains != None:
+                p = Paginator(models.RecentlyOpenedSpace.objects.filter(User_id=FilterUser_id, workspace__Name__icontains=SpaceContains).order_by('-LastOpened'), per_page)
+            else:
+                p = Paginator(models.RecentlyOpenedSpace.objects.filter(User_id=FilterUser_id).order_by('-LastOpened'), per_page)
+
+            paginated_page = p.page(page)
+            paginated_page.object_list = list(paginated_page.object_list)
+
+            Items = [RecentlyOpenedSpace(id=recents.id, workspace=recents.workspace, User=recents.User, LastOpened=recents.LastOpened, count=recents.count,)
+                    for recents in paginated_page if recents.workspace.isClient == False]
+
+            return PaginatedRecentlyOpenedSpace(
+                items=Items, has_next_page=paginated_page.has_next(),)
+        except Exception as e:
+            print(e)
+            return None
     
     @gql.django.field
     def customUsers(self, Useremail: str) -> CustomUser:
@@ -387,6 +456,31 @@ class Query(UserQueries):
             items=[Members(id=member.id, Workspace=member.Workspace, User=member.User, is_admin=member.is_admin)
                    for member in paginated_page],
                    has_next_page=paginated_page.has_next(), memberCount=memberCount)
+        
+        except Exception as e:
+            print(e)
+            return None
+        
+    @gql.django.field
+    def SpaceMembersAddQuery(self, page: int, per_page: int, space_id: str, SelectedSpace: str, UserContains: Optional[str] = None) -> PaginatedSpaceMembersAddQuery | None:
+        try:
+            if UserContains != None:
+                q1 = models.Members.objects.filter(Workspace_id=space_id, User__username__icontains=UserContains).values("User__id", "User__username")
+                q2 = models.Members.objects.filter(Workspace_id=SelectedSpace, User__username__icontains=UserContains).values("User__id", "User__username")
+            else:
+                q1 = models.Members.objects.filter(Workspace_id=space_id).values("User__id", "User__username")
+                q2 = models.Members.objects.filter(Workspace_id=SelectedSpace).values("User__id", "User__username")
+
+            print(q2.difference(q1).order_by('User__id').count(), q1.count(), q2.count())
+
+            p = Paginator(q2.difference(q1).order_by('User__id'), per_page)
+            paginated_page = p.page(page)
+            paginated_page.object_list = list(paginated_page.object_list)
+            
+            return PaginatedSpaceMembersAddQuery(
+            items=[SpaceMembersAddQuery(id=space['User__id'], User=models.Members.objects.filter(Workspace_id=SelectedSpace, User__username=space['User__username']).first().User, isChecked=False)
+                   for space in paginated_page],
+                   has_next_page=paginated_page.has_next())
         
         except Exception as e:
             print(e)
@@ -496,7 +590,30 @@ class Query(UserQueries):
             paginated_page.object_list = list(paginated_page.object_list)
             
             return PaginatedChat(
-            items=[Chat(id=chat.id, Workspace=chat.Workspace, Channel=chat.Channel, Username=chat.Username, Message=chat.Message, ReplyUsername=chat.ReplyUsername, Reply=chat.Reply)
+            items=[Chat(id=chat.id, Workspace=chat.Workspace, Channel=chat.Channel, Username=chat.Username, Message=chat.Message, ReplyUsername=chat.ReplyUsername, Reply=chat.Reply, attachment=chat.attachment, ReplyAttachment=chat.ReplyAttachment, isClient=chat.isClient)
+                   for chat in paginated_page],
+                   has_next_page=paginated_page.has_next())
+        
+        except Exception as e:
+            print(e)
+            return None
+
+    @gql.django.field
+    def FileSpace(self, page: int, per_page: int, ChannelName: str, space_id: str, AfterID: Optional[int] | Optional[None] = None) -> PaginatedChat | None:
+        try:
+            ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+            if AfterID == None:
+                print(AfterID)
+                p = Paginator(models.Chat.objects.filter(Workspace_id=space_id, Channel_id=ChannelName_id, isClient=True).order_by('-id'), per_page)
+            if AfterID != None:
+                print(AfterID)
+                p = Paginator(models.Chat.objects.filter(id__lt=AfterID, Workspace_id=space_id, Channel_id=ChannelName_id, isClient=True).order_by('-id'), per_page)
+
+            paginated_page = p.page(page)
+            paginated_page.object_list = list(paginated_page.object_list)
+            
+            return PaginatedChat(
+            items=[Chat(id=chat.id, Workspace=chat.Workspace, Channel=chat.Channel, Username=chat.Username, Message=chat.Message, ReplyUsername=chat.ReplyUsername, Reply=chat.Reply, attachment=chat.attachment, ReplyAttachment=chat.ReplyAttachment, isClient=chat.isClient)
                    for chat in paginated_page],
                    has_next_page=paginated_page.has_next())
         
