@@ -152,7 +152,6 @@ class Tasks(models.Model):
     Status =models.CharField(max_length = 30, choices = Status, default = 'In Queue')
 
     class Meta:
-        unique_together = ("Workspace", "Channel")
         verbose_name = "Task"
         verbose_name_plural = "Tasks"
 
@@ -200,8 +199,6 @@ class RecentlyOpenedSpace(models.Model):
     User = models.ForeignKey(CustomUser, to_field="email", on_delete=models.DO_NOTHING, related_name="CustomUserName")
     LastOpened = models.DateTimeField(auto_now_add=True)
     count = models.IntegerField(default=1, blank=True, null=True)
-    
-    
 
     class Meta:
         unique_together = ("workspace", "User")

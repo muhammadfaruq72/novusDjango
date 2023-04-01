@@ -30,3 +30,5 @@ application = ProtocolTypeRouter({
     path("chat/", MyConsumer.as_asgi()),
     ])
 })
+
+app = application

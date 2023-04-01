@@ -31,7 +31,8 @@ from .types import (
     deleteChannel,
     PaginatedSpaceMembersAddQuery,
     SpaceMembersAddQuery,
-    Tasks
+    Tasks,
+    PaginatedTasks
 
 )
 from strawberry_django import mutations
@@ -268,25 +269,6 @@ class Mutation:
             print(e)
             return Response(message="Failed")
         
-    # @gql.django.field
-    # def RemoveChannelMember(
-    #     self, info: Info, space_id: str, ChannelName: str, WorkSpaceMemberUsername: str
-    # ) -> Response:
-    #     try:
-    #         CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
-    #         channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
-    #         id = models.ChannelMembers.objects.filter(Workspace_id=space_id, Channel_id=channel_id).values()[0]['id']
-    #         models.ChannelMembers.objects.get(id=id).Member.add(CustomUser_id)
-    #         # ChannelName_id = models.Channels.objects.filter(Name=ChannelName, Workspace=space_id).values()[0]["id"]
-    #         # channelmembers_id = models.ChannelMembers.objects.filter(Channel=ChannelName_id, Workspace=space_id).values()[0]["id"]
-    #         # CustomUser_id = models.CustomUser.objects.filter(username=WorkSpaceMemberUsername).values()[0]["id"]
-    #         # cursor = connection.cursor()
-    #         # cursor.execute(f"""DELETE FROM "novus_channelmembers_Member" WHERE channelmembers_id='{channelmembers_id}' AND CustomUser_id='{CustomUser_id}';""")
-
-    #         return Response(message="Success")
-    #     except Exception as e:
-    #         print(e)
-    #         return Response(message="Failed")
         
     @gql.django.field
     def CreateInviteLink(
@@ -299,18 +281,20 @@ class Mutation:
 
     @gql.django.field
     def Task(
-        self, info: Info, option: str, space_id: str, ChannelName: str, ExpiryDate: Optional[str] = None, Status: Optional[str] = None, id: Optional[int] = None) -> Tasks | None:
+        self, info: Info, option: str, space_id: str, ChannelName: str, task: str, ExpiryDate: Optional[str] = None, Status: Optional[str] = None, id: Optional[int] = None) -> str | None:
         try:
             if option == "add":
                 channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
-                return cast(Tasks, models.Tasks.objects.create(Workspace_id=space_id, Channel_id=channel_id, ExpiryDate=datetime.datetime.strptime(ExpiryDate, "%Y-%m-%d").date(), CreatedOnDate=datetime.date.today()))
+                a = models.Tasks.objects.create(Workspace_id=space_id, Channel_id=channel_id, task=task, ExpiryDate=datetime.datetime.strptime(ExpiryDate, "%Y-%m-%d").date(), CreatedOnDate=datetime.date.today())
+                return str(a.id)
+            
             if option == "status":
-                channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
-                models.Tasks.objects.filter(Workspace_id=space_id, Channel_id=channel_id).update(Status=Status)
-                return cast(Tasks, models.Tasks.objects.filter(Workspace_id=space_id, Channel_id=channel_id))
+                print(Status, id)
+                models.Tasks.objects.filter(id=id).update(Status=Status)
+                return "status"
             if option == "delete":
                 models.Tasks.objects.filter(id=id).delete()
-                return Tasks(id_=id)
+                return "delete"
             
         except Exception as e:
             print(e)
@@ -379,6 +363,24 @@ class Query(UserQueries):
             items=[RecentlyOpenedSpace(id=recents.id, workspace=recents.workspace, User=recents.User, LastOpened=recents.LastOpened, count=recents.count,)
                    for recents in paginated_page],
                    has_next_page=paginated_page.has_next(),)
+    
+    @gql.django.field
+    def Tasks(self, page: int, per_page: int, space_id: str, ChannelName: str) -> PaginatedTasks:
+        channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+        p = Paginator(models.Tasks.objects.filter(Workspace_id=space_id, Channel_id=channel_id).order_by("id"), per_page)
+        paginated_page = p.page(page)
+        paginated_page.object_list = list(paginated_page.object_list)
+        return PaginatedTasks(
+            items=[Tasks(id=recents.id, Workspace=recents.Workspace, Channel=recents.Channel, task=recents.task, CreatedOnDate=recents.CreatedOnDate, ExpiryDate=recents.ExpiryDate, Status=recents.Status,)
+                   for recents in paginated_page],
+                   has_next_page=paginated_page.has_next(),)
+    @gql.django.field
+    def ProgressTasks(self, space_id: str) -> int:
+        Total = models.Tasks.objects.filter(Workspace_id=space_id).count()
+        Completed = models.Tasks.objects.filter(Workspace_id=space_id, Status="Completed").count()
+        Cancelled = models.Tasks.objects.filter(Workspace_id=space_id, Status="Cancelled").count()
+        percentage = ((Completed+ Cancelled) / Total) * 100
+        return int(percentage)
 
     @gql.django.field
     def recentlyOpenedSpaceAddMembers(self, page: int, per_page: int, FilterUser_id: str, SpaceContains: Optional[str] = None) -> PaginatedRecentlyOpenedSpace:
@@ -432,9 +434,20 @@ class Query(UserQueries):
             paginated_page.object_list = list(paginated_page.object_list)
 
             channelCount = models.ChannelMembers.objects.filter(Workspace_id=space_id, Member__email=Useremail).count()
+
+            def Percentage(ChannelName: str):
+                try:
+                    channel_id = models.Channels.objects.filter(Name=ChannelName, Workspace_id=space_id).values()[0]["id"]
+                    Total = models.Tasks.objects.filter(Workspace_id=space_id, Channel_id=channel_id ).count()
+                    Completed = models.Tasks.objects.filter(Workspace_id=space_id, Channel_id=channel_id, Status="Completed").count()
+                    Cancelled = models.Tasks.objects.filter(Workspace_id=space_id, Channel_id=channel_id, Status="Cancelled").count()
+                    percentage = ((Completed+ Cancelled) / Total) * 100
+                    return int(percentage)
+                except: return 0
+                
             
             return PaginatedChannelMembers(
-            items=[ChannelMembers(id=channel.id, Channel=channel.Channel, Member=channel.Member, memberCount=channel.Member.all().count())
+            items=[ChannelMembers(id=channel.id, Channel=channel.Channel, Member=channel.Member, memberCount=channel.Member.all().count(), progress=Percentage(channel.Channel.Name),)
                    for channel in paginated_page],
                    has_next_page=paginated_page.has_next(), channelCount=channelCount)
         

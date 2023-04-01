@@ -16,7 +16,7 @@ SECRET_KEY = 'django-insecure-0lk6xo+yby_t#m-qp+4z4bj@xcy%-%vaid*@))=1t@j2904584
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -57,7 +57,7 @@ CORS_ORIGIN_WHITELIST = (
   'http://localhost:3000',
   'https://sustainee.info',
 )
-ALLOWED_HOSTS = ['101.53.240.2', "127.0.0.1"]
+ALLOWED_HOSTS = ['101.53.240.2', "127.0.0.1", ".vercel.app"]
 
 ROOT_URLCONF = 'novusDjango.urls'
 
@@ -89,14 +89,23 @@ CHANNEL_LAYERS = {
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
+
+#Postgres Database
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'novus',
+#         'USER': 'admin',
+#         'PASSWORD': 'admin',
+#         # 'HOST': 'localhost',
+#         # 'PORT': 5432
+#     }
+# }
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'novus',
-        'USER': 'admin',
-        'PASSWORD': 'admin',
-        # 'HOST': 'localhost',
-        # 'PORT': 5432
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 

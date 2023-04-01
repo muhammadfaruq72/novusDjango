@@ -84,6 +84,7 @@ class ChannelMembers:
     memberCount: int
     channelCount: int
     message: str
+    progress: int
 
 @strawberry.type
 class PaginatedChannelMembers:
@@ -142,15 +143,19 @@ class InviteLink(relay.Node):
     PeopleAdded: gql.auto
 
 @gql.django.type(models.Tasks)
-class Tasks(relay.Node):
-    id_: int
-    id: gql.auto
+class Tasks:
+    id: auto
     Workspace: "Workspace"
     Channel: "Channels"
-    task: gql.auto
-    CreatedOnDate: gql.auto
-    ExpiryDate: gql.auto
-    Status: gql.auto
+    task: auto
+    CreatedOnDate: auto
+    ExpiryDate: auto
+    Status: auto
+
+@strawberry.type
+class PaginatedTasks:
+    items: List[Tasks]
+    has_next_page: bool
     
 
 # @strawberry.django.filters.filter(models.RecentlyOpenedSpace)
