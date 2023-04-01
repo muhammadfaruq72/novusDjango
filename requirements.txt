@@ -17,3 +17,7 @@ numpy
 gradient_generator
 channels
 daphne
+
+# asgiref Django django-cors-headers graphql-core Pillow PyJWT python-dateutil  six sqlparse strawberry-django-auth
+
+# strawberry-django-plus strawberry-graphql strawberry-graphql-django numpy  gradient_generator channels daphne

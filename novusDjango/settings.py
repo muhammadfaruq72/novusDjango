@@ -16,7 +16,7 @@ SECRET_KEY = 'django-insecure-0lk6xo+yby_t#m-qp+4z4bj@xcy%-%vaid*@))=1t@j2904584
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# ALLOWED_HOSTS = []
+
 
 
 # Application definition
@@ -57,7 +57,8 @@ CORS_ORIGIN_WHITELIST = (
   'http://localhost:3000',
   'https://sustainee.info',
 )
-ALLOWED_HOSTS = ['101.53.240.2', "127.0.0.1", ".vercel.app"]
+ALLOWED_HOSTS = ["*"]
+# ALLOWED_HOSTS = ['101.53.240.2', "127.0.0.1"]
 
 ROOT_URLCONF = 'novusDjango.urls'
 
