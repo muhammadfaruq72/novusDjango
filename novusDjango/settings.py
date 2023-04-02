@@ -78,7 +78,8 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = 'novusDjango.asgi.application'
+# ASGI_APPLICATION = 'novusDjango.asgi.application'
+WSGI_APPLICATION = 'novusDjango.wsgi.application'
 
 
 CHANNEL_LAYERS = {
