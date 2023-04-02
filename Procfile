@@ -1,1 +1,1 @@
-web: gunicorn novusDjango.asgi --log-file -
+web: gunicorn novusDjango.asgi:application --log-file -
