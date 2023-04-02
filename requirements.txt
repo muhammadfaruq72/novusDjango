@@ -17,3 +17,5 @@ numpy
 gradient_generator
 channels
 daphne
+gunicorn
+uvicorn
