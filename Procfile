@@ -1,1 +1,0 @@
-web: gunicorn novusDjango.asgi -w 4 -k uvicorn.workers.UvicornWorker
