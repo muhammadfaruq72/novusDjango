@@ -1,1 +1,1 @@
-web: gunicorn novusDjango.wsgi:application --log-file -
+web: gunicorn novusDjango.asgi -w 4 -k uvicorn.workers.UvicornWorker
