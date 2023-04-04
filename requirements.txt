@@ -19,5 +19,4 @@ channels
 daphne
 gunicorn
 uvicorn
-websockets
-wsproto
+uvicorn[standard]

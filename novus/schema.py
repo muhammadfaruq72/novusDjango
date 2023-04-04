@@ -633,6 +633,10 @@ class Query(UserQueries):
         except Exception as e:
             print(e)
             return None
+    
+    @gql.django.field
+    def TestApi(self) -> str:
+        return "Working..."
 
 
     # workspace: List[Workspace] = strawberry.django.field()
