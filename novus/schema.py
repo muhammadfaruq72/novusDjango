@@ -49,6 +49,9 @@ import datetime
 from django.utils import timezone
 from django.db.models import Value, BooleanField
 import numpy
+from PIL import Image
+import urllib.request
+from novusDjango.settings import BASE_DIR
 
 
 def CreateChannel(space_id: str, ChannelName: str, CreatorEmail: str):
@@ -109,6 +112,12 @@ class Mutation:
     password_set = arg_mutations.PasswordSet.field
     refresh_token = arg_mutations.RefreshToken.field
     revoke_token = arg_mutations.RevokeToken.field
+    
+    @gql.django.field
+    def RegisterCustom(self, info: Info, email: str, password: str, image: str) -> str:
+        a = models.CustomUser.objects.create(email=email, password=password)
+        urllib.request.urlretrieve(image, f"{BASE_DIR}/static/Users/{a.username}.png")
+        return "Registered"
 
     @gql.django.field
     def Workspace(self, info: Info, email: str, Name: str, isClient: Optional[bool] = False ) -> Workspace | None:
